@@ -20,5 +20,17 @@ export const getEcgData = async (id: string, step: number) => {
     orderBy: (table) => asc(table.timestamp)
   });
 
-  return data.map((x) => x.value);
+  const resp = await db.query.resp.findMany({
+    where: (table) => and(
+      eq(table.patientId, id),
+      gte(table.timestamp, startDate),
+      lte(table.timestamp, endDate)
+    ),
+    orderBy: (table) => asc(table.timestamp)
+  });
+
+  return {
+    ecg: data.map((x) => x.value),
+    resp: resp.map((x) => x.value)
+  };
 }

@@ -70,6 +70,10 @@ export const EcgGraph = ({ id }: { id: string }) => {
       label: "ECG",
       color: "hsl(var(--chart-1))",
     },
+    resp: {
+      label: "Resp",
+      color: "hsl(var(--chart-2))",
+    }
   } satisfies ChartConfig
 
   return (
@@ -151,9 +155,9 @@ export const EcgGraph = ({ id }: { id: string }) => {
               <Area
                 dataKey="amplitude"
                 type="linear"
-                fill="var(--color-desktop)"
+                fill="var(--color-resp)"
                 fillOpacity={0.4}
-                stroke="var(--color-desktop)"
+                stroke="var(--color-resp)"
               />
             </AreaChart>
           </ChartContainer>

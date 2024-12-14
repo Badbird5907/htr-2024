@@ -1,11 +1,17 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  date,
+  doublePrecision,
   index,
   integer,
+  numeric,
+  pgEnum,
   pgTableCreator,
   primaryKey,
+  serial,
   text,
   timestamp,
+  uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 import { type AdapterAccount } from "next-auth/adapters";
@@ -17,27 +23,6 @@ import { type AdapterAccount } from "next-auth/adapters";
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
  */
 export const createTable = pgTableCreator((name) => `htr-2024_${name}`);
-
-export const posts = createTable(
-  "post",
-  {
-    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-    name: varchar("name", { length: 256 }),
-    createdById: varchar("created_by", { length: 255 })
-      .notNull()
-      .references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .default(sql`CURRENT_TIMESTAMP`)
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
-      () => new Date()
-    ),
-  },
-  (example) => ({
-    createdByIdIdx: index("created_by_idx").on(example.createdById),
-    nameIndex: index("name_idx").on(example.name),
-  })
-);
 
 export const users = createTable("user", {
   id: varchar("id", { length: 255 })
@@ -127,3 +112,46 @@ export const verificationTokens = createTable(
     compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
   })
 );
+
+// ------------------------------
+
+export const pgGender = pgEnum("gender", ["male", "female", "other"]);
+export const patients = createTable("patients", {
+  id: uuid("id").primaryKey().defaultRandom().unique(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  birthDate: date("birth_date").notNull(),
+  gender: pgGender("gender").notNull(),
+  notes: text("notes").default("").notNull(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+export const detections = createTable("detections", {
+  id: uuid("id").primaryKey().defaultRandom().unique(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => patients.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+
+export const detectionsRelations = relations(detections, ({ one }) => ({
+  patient: one(patients, { fields: [detections.patientId], references: [patients.id] }),
+}));
+
+export const ecg = createTable("ecg", {
+  id: serial("id").primaryKey(),
+  patientId: uuid("patientId").notNull().references(() => patients.id),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
+  value: doublePrecision("value").notNull(),
+}, (t) => ({
+  idx: index("idx_patient_id_timestamp").on(t.patientId, t.timestamp),
+}));
+
+export const ecgRelations = relations(ecg, ({ one }) => ({
+  patient: one(patients, { fields: [ecg.patientId], references: [patients.id] }),
+}));

@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1734199591790,
+      "tag": "0000_rapid_grim_reaper",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1734210652005,
+      "tag": "0001_tense_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1734211437691,
+      "tag": "0002_natural_shaman",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1734211543286,
+      "tag": "0003_tiresome_oracle",
+      "breakpoints": true
+    }
+  ]
+}

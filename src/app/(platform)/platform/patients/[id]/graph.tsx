@@ -32,7 +32,6 @@ export const EcgGraph = ({ id }: { id: string }) => {
   }
 
   useEffect(() => {
-    console.log("step", step)
     const debounceTimeout = setTimeout(() => {
       startTransition(async () => {
         await fetchData();
@@ -44,16 +43,18 @@ export const EcgGraph = ({ id }: { id: string }) => {
 
   const ecgChartData = useMemo(() => {
     return ecgPoints.map((point, index) => {
+      const actualTime = new Date(minDate.getTime() + (index * 1000 / sampleRate));
       return {
-        x: index * (1000 / sampleRate),
+        x: actualTime.toLocaleTimeString(),
         amplitude: point
       }
     })
   }, [ecgPoints, step]);
   const respChartData = useMemo(() => {
     return respPoints.map((point, index) => {
+      const actualTime = new Date(minDate.getTime() + (index * 1000 / sampleRate));
       return {
-        x: index * (1000 / sampleRate),
+        x: actualTime.toLocaleTimeString(),
         amplitude: point
       }
     })
@@ -117,7 +118,7 @@ export const EcgGraph = ({ id }: { id: string }) => {
           </ChartContainer>
         </CardContent>
         <CardFooter className="flex flex-row gap-4">
-          <Slider defaultValue={[step - 1]} onValueChange={([value]) => setStep(value ?? (windowSamples / 2))} />
+          <Slider defaultValue={[50]} max={100} onValueChange={([value]) => setStep(value ?? (windowSamples / 2))} />
           <Input type="number" className="w-fit" value={margin} onChange={(e) => setMargin(Number(e.target.value))} />
           {detected ?
             <div className="text-red-500 font-bold">Possible bradycardia detected</div> :

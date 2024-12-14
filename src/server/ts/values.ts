@@ -8,7 +8,7 @@ export const seconds = (maxDate.getTime() - minDate.getTime()) / 1000
 export const sampleRate = 250
 export const totalSamples = seconds * sampleRate
 
-export const windowSize = 15; // seconds
+export const windowSize = 5; // seconds
 export const windowSamples = windowSize * sampleRate;
 
 

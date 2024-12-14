@@ -2,81 +2,100 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class NICUHybridModel(nn.Module):
+class NICUBradycardiaModel(nn.Module):
     def __init__(self, 
-                 in_channels=3,       # e.g., ECG=1 channel, Resp=1 channel
-                 seq_length=3000,     # e.g., ~6s at 500Hz or adjust as needed
-                 out_channels=5,      # number of output classes for classification
-                 cnn_channels=[64,128,128],
-                 lstm_hidden_size=512,
-                 lstm_num_layers=2,
-                 reconstruction_loss=True):
-        super(NICUHybridModel, self).__init__()
+                 in_channels=2,
+                 seq_length=3750,   # sequence length (15s at 250Hz)
+                 hidden_size=1536,  # Large LSTM hidden size
+                 lstm_layers=2, 
+                 out_channels=2):
+        super(NICUBradycardiaModel, self).__init__()
         
-        # CNN feature extraction
-        cnn_layers = []
-        input_dim = in_channels
-        for ch in cnn_channels:
-            cnn_layers.append(nn.Conv1d(input_dim, ch, kernel_size=7, padding=3))
-            cnn_layers.append(nn.BatchNorm1d(ch))
-            cnn_layers.append(nn.ReLU(inplace=True))
-            cnn_layers.append(nn.MaxPool1d(kernel_size=2, stride=2))
-            input_dim = ch
-        self.cnn = nn.Sequential(*cnn_layers)
-        
-        # After CNN pooling, sequence length is reduced by 2 for each MaxPool
-        # final seq_length = seq_length / (2^(len(cnn_channels)))
-        # feature dimension after CNN = cnn_channels[-1]
-        cnn_out_dim = cnn_channels[-1]
-        
-        # LSTM for temporal modeling
-        self.lstm = nn.LSTM(input_size=cnn_out_dim, 
-                            hidden_size=lstm_hidden_size, 
-                            num_layers=lstm_num_layers,
-                            batch_first=True,
-                            bidirectional=True)
-        
-        lstm_output_dim = lstm_hidden_size * 2
-        
-        # Classification Head
-        self.fc_class = nn.Sequential(
-            nn.Linear(lstm_output_dim, 256),
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(256, out_channels)
+        # ---------------------
+        # CNN Feature Extractor
+        # Keep this relatively small
+        # ---------------------
+        self.cnn = nn.Sequential(
+            nn.Conv1d(in_channels, 64, kernel_size=7, padding=3),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool1d(2),
+            
+            nn.Conv1d(64, 128, kernel_size=7, padding=3),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool1d(2),
+            
+            nn.Conv1d(128, 128, kernel_size=7, padding=3),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool1d(2)
         )
         
-        # Reconstruction Head (Unsupervised)
-        self.reconstruction_loss = reconstruction_loss
-        if reconstruction_loss:
-            self.decoder_fc = nn.Linear(lstm_output_dim, cnn_out_dim)
-            dec_layers = []
-            dec_input_dim = cnn_out_dim
-            for ch in reversed(cnn_channels):
-                dec_layers.append(nn.ConvTranspose1d(dec_input_dim, ch, kernel_size=4, stride=2, padding=1))
-                dec_layers.append(nn.BatchNorm1d(ch))
-                dec_layers.append(nn.ReLU(inplace=True))
-                dec_input_dim = ch
-            dec_layers.append(nn.Conv1d(dec_input_dim, in_channels, kernel_size=7, padding=3))
-            self.decoder = nn.Sequential(*dec_layers)
+        # After 3 max pools (2x each), sequence_length reduces by a factor of 8
+        # Output of CNN: (batch, 128, seq_length/8)
+        # Let's call reduced_seq_len = seq_length/8 (for 3000, ~375)
+        
+        # LSTM: Large hidden size to achieve large parameter count
+        # Input to LSTM: 128 features from CNN
+        # Bidirectional doubles hidden size output dimension
+        self.lstm = nn.LSTM(
+            input_size=128,
+            hidden_size=hidden_size,
+            num_layers=lstm_layers,
+            batch_first=True,
+            bidirectional=True
+        )
+        # LSTM output dim: 2 * hidden_size (for bidirection)
+        
+        lstm_output_dim = hidden_size * 2
+        
+        # ---------------------
+        # Large Fully Connected Layers
+        # We'll create large FC layers to reach ~100M params.
+        # For instance: from lstm_output_dim to a large dim, then another large FC layer.
+        # 
+        # For parameter counting:
+        # A linear layer W with shape (fan_in, fan_out) has fan_in * fan_out params (plus biases ~ fan_out)
+        # hidden_size=1536 means lstm_output_dim=3072
+        #
+        # Let's pick a large dim for first FC layer, say 8192.
+        # That gives ~ 3072 * 8192 ≈ 25 million params in first large FC.
+        
+        self.fc1 = nn.Linear(lstm_output_dim, 8192)
+        # Another large layer to get another big chunk of parameters:
+        # from 8192 -> 4096: 8192 * 4096 ≈ 33.5 million params
+        self.fc2 = nn.Linear(8192, 4096)
+        
+        # Finally, from 4096 -> 2 outputs (binary classification)
+        self.fc_out = nn.Linear(4096, out_channels)
+        
+        self.dropout = nn.Dropout(p=0.2)
         
     def forward(self, x, hidden=None):
         # x: (batch, in_channels, seq_length)
-        c = self.cnn(x)  # (batch, cnn_out_dim, reduced_length)
         
-        c = c.transpose(1, 2)  # (batch, reduced_length, cnn_out_dim)
+        # Extract CNN features
+        c = self.cnn(x)  # (batch, 128, seq_length/8)
         
-        lstm_out, hidden = self.lstm(c, hidden)  # (batch, reduced_length, 2*lstm_hidden_size)
+        # Prepare for LSTM
+        c = c.transpose(1, 2)  # (batch, seq_length/8, 128)
         
-        # Classification: mean-pool over time
-        cls_input = torch.mean(lstm_out, dim=1)  # (batch, lstm_output_dim)
-        class_logits = self.fc_class(cls_input)  # (batch, out_channels)
+        # LSTM
+        lstm_out, hidden = self.lstm(c, hidden)  # (batch, seq_length/8, 2*hidden_size)
         
-        if self.reconstruction_loss:
-            # Reconstruction
-            dec_feats = self.decoder_fc(lstm_out)  # (batch, reduced_length, cnn_out_dim)
-            dec_feats = dec_feats.transpose(1, 2)  # (batch, cnn_out_dim, reduced_length)
-            reconstructed = self.decoder(dec_feats)  # (batch, in_channels, ~seq_length)
-            return class_logits, reconstructed, hidden
-        else:
-            return class_logits, hidden 
+        # Pool over time (mean or max). Let's do mean pooling:
+        x = torch.mean(lstm_out, dim=1)  # (batch, 2*hidden_size) = (batch, 3072)
+        
+        # Large FC layers
+        x = self.fc1(x)     # (batch, 8192)
+        x = F.relu(x)
+        x = self.dropout(x)
+        
+        x = self.fc2(x)     # (batch, 4096)
+        x = F.relu(x)
+        x = self.dropout(x)
+        
+        x = self.fc_out(x)  # (batch, 2)
+        
+        return x, hidden 

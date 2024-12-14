@@ -19,17 +19,21 @@ export const EcgGraph = ({ id }: { id: string }) => {
 
   const [margin, setMargin] = useState(0.5);
 
+  const fetchData = async () => {
+    return getEcgData(id, step).then((data) => {
+      console.log(data)
+      setPoints(data);
+      setMargin(calculateMargin(data));
+    }).catch((error) => {
+      console.error(error);
+    })
+  }
+
   useEffect(() => {
     console.log("step", step)
     const debounceTimeout = setTimeout(() => {
       startTransition(async () => {
-        await getEcgData(id, step).then((data) => {
-          console.log(data)
-          setPoints(data);
-          setMargin(calculateMargin(data));
-        }).catch((error) => {
-          console.error(error);
-        })
+        await fetchData();
       })
     }, 300); // 300ms debounce delay
 

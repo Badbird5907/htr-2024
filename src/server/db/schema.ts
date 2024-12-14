@@ -155,3 +155,16 @@ export const ecg = createTable("ecg", {
 export const ecgRelations = relations(ecg, ({ one }) => ({
   patient: one(patients, { fields: [ecg.patientId], references: [patients.id] }),
 }));
+
+export const resp = createTable("resp", {
+  id: serial("id").primaryKey(),
+  patientId: uuid("patientId").notNull().references(() => patients.id),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
+  value: doublePrecision("value").notNull(),
+}, (t) => ({
+  idx: index("idx_patient_id_timestamp_resp").on(t.patientId, t.timestamp),
+}));
+
+export const respRelations = relations(resp, ({ one }) => ({
+  patient: one(patients, { fields: [resp.patientId], references: [patients.id] }),
+}));

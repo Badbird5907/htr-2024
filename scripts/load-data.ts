@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { Float, tableFromIPC, Vector } from 'apache-arrow';
 import { tsDb } from '@/server/ts/schema';
 import { db } from '@/server/db';
-import { ecg as dbEcg } from '@/server/db/schema';
+import { ecg as dbEcg, resp as dbResp } from '@/server/db/schema';
 import { asc, desc } from 'drizzle-orm';
 import { sampleRate } from '@/server/ts/values';
 const arrow = readFileSync("data/data-00000-of-00010.arrow")
@@ -35,6 +35,12 @@ for (let i = 0; i < 10; i++) {
     return { value, timestamp }
   });
 
+  const resp = points.map((x, j) => {
+    const value = x[1]
+    const timestamp = end.getTime() - j * interval
+    return { value, timestamp }
+  });
+
   end = new Date(ecg[ecg.length - 1]!.timestamp)
 
   const pid = "0da28d88-932c-4e16-bb3d-82aad9de4e51";
@@ -43,13 +49,22 @@ for (let i = 0; i < 10; i++) {
   //   INSERT INTO ecg (patientId, timestamp, value) 
   //   VALUES ${tsDb(ecg.map(x => [pid, x.timestamp, x.value]))}
   // `
-  await db.insert(dbEcg).values(ecg.map(x => {
-    return {
-      patientId: pid,
-      timestamp: new Date(x.timestamp),
-      value: x.value
-    }
-  }))
+  await Promise.all([
+    db.insert(dbEcg).values(ecg.map(x => {
+      return {
+        patientId: pid,
+        timestamp: new Date(x.timestamp),
+        value: x.value
+      }
+    })),
+    db.insert(dbResp).values(resp.map(x => {
+      return {
+        patientId: pid,
+        timestamp: new Date(x.timestamp),
+        value: x.value
+      }
+    }))
+  ])
 }
 
 const min = await db.select().from(dbEcg).orderBy(desc(dbEcg.id)).limit(1)

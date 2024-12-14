@@ -42,7 +42,7 @@ export default function Page() {
       <div className="w-full flex flex-col gap-4">
         <DataTable columns={columns} data={data ?? []} globalFilter={filter} actionsBar={(
           <div className="flex flex-col md:flex-row w-full items-center gap-2">
-            <NewPatient />
+            {/* <NewPatient /> */}
             <Input
               className="w-full md:w-1/3 mx-2"
               type="text"

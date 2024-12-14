@@ -7,8 +7,19 @@ from datasets import load_from_disk
 # Load the dataset
 dataset = load_from_disk("HTR-2024-brachy")
 
-# Create a DataLoader
-train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+# Define a collate function
+def collate_fn(batch):
+    inputs = torch.tensor([item['input'] for item in batch], dtype=torch.float32)  # Shape: (batch, 2, 3750)
+    labels = torch.tensor([item['label'] for item in batch], dtype=torch.long)
+    return inputs, labels
+
+# Create DataLoader
+train_loader = DataLoader(
+    dataset,
+    batch_size=32,
+    shuffle=True,
+    collate_fn=collate_fn
+)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

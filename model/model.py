@@ -34,9 +34,8 @@ class NICUBradycardiaModel(nn.Module):
         
         # After 3 max pools (2x each), sequence_length reduces by a factor of 8
         # Output of CNN: (batch, 128, seq_length/8)
-        # Let's call reduced_seq_len = seq_length/8 (for 3000, ~375)
+        # reduced_seq_len = seq_length/8 (for 3000, ~375)
         
-        # LSTM: Large hidden size to achieve large parameter count
         # Input to LSTM: 128 features from CNN
         # Bidirectional doubles hidden size output dimension
         self.lstm = nn.LSTM(
@@ -52,15 +51,10 @@ class NICUBradycardiaModel(nn.Module):
         
         # ---------------------
         # Large Fully Connected Layers
-        # We'll create large FC layers to reach ~100M params.
-        # For instance: from lstm_output_dim to a large dim, then another large FC layer.
         # 
         # For parameter counting:
         # A linear layer W with shape (fan_in, fan_out) has fan_in * fan_out params (plus biases ~ fan_out)
         # hidden_size=1536 means lstm_output_dim=3072
-        #
-        # Let's pick a large dim for first FC layer, say 8192.
-        # That gives ~ 3072 * 8192 ≈ 25 million params in first large FC.
         
         self.fc1 = nn.Linear(lstm_output_dim, 8192)
         # Another large layer to get another big chunk of parameters:

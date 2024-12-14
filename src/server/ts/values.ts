@@ -1,8 +1,8 @@
 export const minDate = new Date(
-  "2024-12-14T22:40:25.516Z"
+  "2024-12-14T22:50:02.829Z"
 )
 export const maxDate = new Date(
-  "2024-12-14T22:40:25.516Z"
+  "2024-12-14T22:52:32.789Z"
 )
 export const seconds = (maxDate.getTime() - minDate.getTime()) / 1000
 export const sampleRate = 250

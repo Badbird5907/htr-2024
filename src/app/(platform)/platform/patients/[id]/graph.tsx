@@ -74,7 +74,7 @@ export const EcgGraph = ({ id }: { id: string }) => {
 
   return (
     <>
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>ECG</CardTitle>
           <CardDescription>
@@ -120,7 +120,7 @@ export const EcgGraph = ({ id }: { id: string }) => {
             <div className="text-green-500">Everything looks normal</div>}
         </CardFooter>
       </Card>
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Respitory</CardTitle>
           <CardDescription>

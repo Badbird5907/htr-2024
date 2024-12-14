@@ -13,7 +13,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <div>
       <h1>{patient.firstName} {patient.lastName}</h1>
-      <div className="flex flex-row gap-4 w-full">
+      <div className="flex flex-col  gap-4 w-full">
         <EcgGraph id={id} />
       </div>
     </div>
